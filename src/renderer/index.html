@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copy Login Info</title>
+    <script>
+        // 修复 Electron 渲染进程中的 global 问题
+        if (typeof global === 'undefined') {
+            var global = globalThis;
+        }
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+</body>
+</html> 
