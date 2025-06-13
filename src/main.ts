@@ -20,18 +20,52 @@ let mainWindow: BrowserWindow | null = null;
 
 // 检查是否为便携模式（exe文件旁边是否有 portable 文件）
 const isPortableMode = (() => {
+    // 首先检查环境变量（便携版会设置这个）
+    if (process.env.PORTABLE_EXECUTABLE_DIR) {
+        const portableMarker = path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'portable');
+        if (fs.existsSync(portableMarker)) {
+            return true;
+        }
+    }
+    
+    // 然后检查当前执行路径
     const exePath = process.execPath;
     const exeDir = path.dirname(exePath);
     const portableMarker = path.join(exeDir, 'portable');
-    return fs.existsSync(portableMarker);
+    if (fs.existsSync(portableMarker)) {
+        return true;
+    }
+    
+    // 最后检查资源目录（对于打包后的应用）
+    if (process.resourcesPath) {
+        const resourcesDir = path.dirname(process.resourcesPath);
+        const portableMarker = path.join(resourcesDir, 'portable');
+        if (fs.existsSync(portableMarker)) {
+            return true;
+        }
+    }
+    
+    return false;
 })();
 
 // 配置目录路径
 const getConfigBasePath = () => {
     if (isPortableMode) {
         // 便携模式：数据存储在exe文件同目录下的data文件夹
-        const exeDir = path.dirname(process.execPath);
-        return path.join(exeDir, 'data');
+        let baseDir;
+        
+        // 优先使用环境变量指定的目录
+        if (process.env.PORTABLE_EXECUTABLE_DIR) {
+            baseDir = process.env.PORTABLE_EXECUTABLE_DIR;
+        } else if (process.resourcesPath) {
+            // 使用资源目录的父目录
+            baseDir = path.dirname(process.resourcesPath);
+        } else {
+            // 回退到执行路径
+            baseDir = path.dirname(process.execPath);
+        }
+        
+        return path.join(baseDir, 'data');
     } else {
         // 普通模式：数据存储在用户目录
         return app.getPath('userData');
@@ -51,10 +85,30 @@ function ensureConfigDir(): void {
         fs.mkdirSync(configPath, { recursive: true });
     }
     
-    // 在开发模式下显示存储模式信息
+    // 显示存储模式信息（包括生产模式）
+    console.log(`存储模式: ${isPortableMode ? '便携模式' : '普通模式'}`);
+    console.log(`数据目录: ${basePath}`);
+    console.log(`当前执行路径: ${process.execPath}`);
+    console.log(`资源路径: ${process.resourcesPath || 'undefined'}`);
+    console.log(`便携环境变量: ${process.env.PORTABLE_EXECUTABLE_DIR || 'undefined'}`);
+    
+    // 检查各种可能的 portable 文件位置
+    const possiblePortablePaths = [
+        process.env.PORTABLE_EXECUTABLE_DIR ? path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'portable') : null,
+        path.join(path.dirname(process.execPath), 'portable'),
+        process.resourcesPath ? path.join(path.dirname(process.resourcesPath), 'portable') : null
+    ].filter(Boolean);
+    
+    possiblePortablePaths.forEach((portablePath, index) => {
+        if (portablePath) {
+            console.log(`portable文件路径${index + 1}: ${portablePath}`);
+            console.log(`portable文件${index + 1}是否存在: ${fs.existsSync(portablePath)}`);
+        }
+    });
+    
+    // 在开发模式下显示额外信息
     if (process.argv.includes('--dev')) {
-        console.log(`存储模式: ${isPortableMode ? '便携模式' : '普通模式'}`);
-        console.log(`数据目录: ${basePath}`);
+        console.log('开发模式启用');
     }
 }
 
